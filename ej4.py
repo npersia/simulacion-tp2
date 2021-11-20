@@ -1,28 +1,69 @@
-import time
+
+import random
 
 import simpy
+import numpy
+
+RANDOM_SEED = 42
+NUM_ATM = 1         # Number of clients in the atm
+ATM_TIME = 5        # Minutes it takes to user a atm
+SIM_TIME = 540     # Simulation time in minutes
 
 
-def falso_random(env):
-    a = [1,2,3,4,5,6,7]
-    i = 0
-    for x in range(10):
-        yield env.timeout(a[i])
-        print(a[i])
-        i+=1
-        if i == len(a):
-            i = 0
+def use_time():
+    return numpy.random.choice(
+        [random.uniform(4-3,4+3),
+         random.uniform(2-1,2+1),
+         random.uniform(3-2,3+2)]
+        ,p=[0.1,0.7,0.2])
 
-def example(env):
-    value = yield env.timeout(1, value=42)
-    print('now=%d, value=%d' % (env.now, value))
 
-"""
+def mean_time(now):
+    if now <= 120:
+        return 4
+    elif now > 120 and now <= 300:
+        return 2
+    else:
+        return 6
+
+
+class Atm(object):
+
+    def __init__(self, env, NUM_ATM):
+        self.env = env
+        self.atm = simpy.Resource(env, NUM_ATM)
+
+    def use(self):
+        yield self.env.timeout(use_time())
+
+
+def client(env, name, atm):
+    print('%s arrives at the ATM at %.2f.' % (name, env.now))
+    with atm.atm.request() as request:
+        yield request
+
+        print('%s enters the ATM at %.2f.' % (name, env.now))
+        yield env.process(atm.use())
+
+        print('%s leaves the ATM at %.2f.' % (name, env.now))
+
+
+def setup(env, NUM_ATM):
+    atm = Atm(env, NUM_ATM)
+    i=0
+    while True:
+        t_inter = mean_time(env.now)
+        yield env.timeout(random.expovariate(1/t_inter))
+        i += 1
+        env.process(client(env, 'Client %d' % i, atm))
+
+
+# Setup and start the simulation
+random.seed(RANDOM_SEED)  # This helps reproducing the results
+
+# Create an environment and start the setup process
 env = simpy.Environment()
-p = env.process(example(env))
-env.run()
-"""
+env.process(setup(env, NUM_ATM))
 
-env = simpy.Environment()
-p = env.process(falso_random(env))
-env.run()
+# Execute!
+env.run(until=SIM_TIME)
