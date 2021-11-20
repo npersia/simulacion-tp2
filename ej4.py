@@ -4,10 +4,18 @@ import random
 import simpy
 import numpy
 
+import pandas as pd
+
 RANDOM_SEED = 42
 NUM_ATM = 1         # Number of clients in the atm
 ATM_TIME = 5        # Minutes it takes to user a atm
 SIM_TIME = 540     # Simulation time in minutes
+
+global df
+df = pd.DataFrame(columns=["client", "arrive", "enter", "waits","leaves"])
+
+global waiting_people
+waiting_people = pd.DataFrame(columns=["clients"])
 
 
 def use_time():
@@ -38,14 +46,31 @@ class Atm(object):
 
 
 def client(env, name, atm):
-    print('%s arrives at the ATM at %.2f.' % (name, env.now))
+    arrives = env.now
+    print('%s arrives at the ATM at %.2f.' % (name, arrives))
     with atm.atm.request() as request:
         yield request
 
-        print('%s enters the ATM at %.2f.' % (name, env.now))
+        enters = env.now
+        print('%s enters the ATM at %.2f.' % (name, enters))
         yield env.process(atm.use())
+        waits = enters-arrives
+        print('%s waits time %.2f.' % (name, waits))
 
         print('%s leaves the ATM at %.2f.' % (name, env.now))
+        print('Clients in the queue %d'% (len(atm.atm.queue)))
+        wp = pd.DataFrame({"clients": [len(atm.atm.queue)]})
+
+        global waiting_people
+        waiting_people = waiting_people.append(wp,ignore_index = True)
+
+
+        d2 = {"client": [name], "arrive": [arrives], "enter": [enters],"waits": [waits], "leaves": [env.now]}
+        df2 = pd.DataFrame(data=d2)
+
+
+        global df
+        df = df.append(df2,ignore_index = True)
 
 
 def setup(env, NUM_ATM):
@@ -67,3 +92,7 @@ env.process(setup(env, NUM_ATM))
 
 # Execute!
 env.run(until=SIM_TIME)
+
+
+print(df)
+print(waiting_people)
