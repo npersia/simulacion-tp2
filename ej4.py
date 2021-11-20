@@ -48,6 +48,15 @@ class Atm(object):
 def client(env, name, atm):
     arrives = env.now
     print('%s arrives at the ATM at %.2f.' % (name, arrives))
+
+
+    print('Clients in the queue %d' % (len(atm.atm.queue)))
+    wp = pd.DataFrame({"clients": [len(atm.atm.queue)]})
+    global waiting_people
+    waiting_people = waiting_people.append(wp, ignore_index=True)
+
+
+
     with atm.atm.request() as request:
         yield request
 
@@ -58,11 +67,7 @@ def client(env, name, atm):
         print('%s waits time %.2f.' % (name, waits))
 
         print('%s leaves the ATM at %.2f.' % (name, env.now))
-        print('Clients in the queue %d'% (len(atm.atm.queue)))
-        wp = pd.DataFrame({"clients": [len(atm.atm.queue)]})
 
-        global waiting_people
-        waiting_people = waiting_people.append(wp,ignore_index = True)
 
 
         d2 = {"client": [name], "arrive": [arrives], "enter": [enters],"waits": [waits], "leaves": [env.now]}
